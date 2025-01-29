@@ -30,81 +30,77 @@
 
             // Function to create the scene
             var createScene = function () {
-                var scene = new BABYLON.Scene(engine);
-                scene.debugLayer.show({ embedMode: true }); // Show debug layer
+                // Créer la scène
+                const canvas = document.getElementById("renderCanvas"); 
+                const engine = new BABYLON.Engine(canvas, true); 
 
-                // Create an ArcRotateCamera and attach it to the canvas for user control
-                var camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 4, Math.PI / 2.5, 3, BABYLON.Vector3.Zero(), scene);
+                const scene = new BABYLON.Scene(engine);
+            
+                // Ajouter une caméra
+                const camera = new BABYLON.ArcRotateCamera(
+                    "camera",
+                    Math.PI / 2,
+                    Math.PI / 3,
+                    2,
+                    BABYLON.Vector3.Zero(),
+                    scene
+                );
                 camera.attachControl(canvas, true);
-                camera.minZ = 0.1; // Set minimum distance for camera zoom
-                camera.wheelDeltaPercentage = 0.01; // Set zoom sensitivity
+                camera.minZ = 0.1;
+                camera.wheelDeltaPercentage = 0.01;
 
-                // Create a point light source in the scene
-                var light = new BABYLON.PointLight("point", new BABYLON.Vector3(0, 40, 0), scene);
-
-                // Load an HDR cubemap texture for environment reflections
-                var hdrTexture = new BABYLON.HDRCubeTexture("textures/room4k.hdr", scene, 512);
-
-                // Create a large skybox using the HDR texture for the environment
-                var hdrSkybox = BABYLON.Mesh.CreateBox("hdrSkyBox", 1000.0, scene);
-                var hdrSkyboxMaterial = new BABYLON.PBRMaterial("skyBox", scene);
-                hdrSkyboxMaterial.backFaceCulling = false; // Show both sides of the skybox faces
-                hdrSkyboxMaterial.reflectionTexture = hdrTexture.clone(); // Use HDR texture for reflections
-                hdrSkyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE; // Set the cubemap mode
-                hdrSkyboxMaterial.microSurface = 1.0; // Set smoothness for the material
-                hdrSkyboxMaterial.disableLighting = true; // Disable lighting for the skybox
-                hdrSkybox.material = hdrSkyboxMaterial;
-                hdrSkybox.infiniteDistance = true; // Make the skybox infinite
-
-                // Create a dynamic reflection texture that will render the scene from the camera's view
-                var dynamicReflectionTexture = new BABYLON.RenderTargetTexture("ReflectionTexture", { width: 512, height: 512 }, scene, true, true);
-                dynamicReflectionTexture.renderList = [hdrSkybox]; // Set the objects to render for the reflection texture
-                dynamicReflectionTexture.refreshRate = BABYLON.RenderTargetTexture.REFRESHRATE_RENDER_ONEVERYFRAME; // Refresh every frame
-
-                // Load the bottle model (in .glb format)
-                BABYLON.SceneLoader.Append("", "bottle.glb", scene, function () {
-                    let bottleMesh = scene.getMeshByName("bottle"); // Get the bottle mesh by name
-                    if (bottleMesh) {
-                        // Create a PBR material for the glass material of the bottle
-                        var glassMaterial = new BABYLON.PBRMaterial("glassMaterial", scene);
-                        glassMaterial.reflectionTexture = dynamicReflectionTexture; // Use dynamic reflections
-                        glassMaterial.refractionTexture = hdrTexture; // Use the HDR texture for refraction
-                        glassMaterial.linkRefractionWithTransparency = true; // Link refraction with transparency
-                        glassMaterial.indexOfRefraction = 1.3; // Set the refraction index for glass
-                        glassMaterial.alpha = 0; // Set transparency
-                        glassMaterial.directIntensity = 0.0; // Disable direct light intensity
-                        glassMaterial.environmentIntensity = 0.7; // Set the environment intensity
-                        glassMaterial.cameraExposure = 0.66; // Set camera exposure for realistic lighting
-                        glassMaterial.cameraContrast = 1.66; // Set camera contrast
-                        glassMaterial.microSurface = 1; // Set smoothness for the glass material
-                        glassMaterial.reflectivityColor = new BABYLON.Color3(0.2, 0.2, 0.2); // Set the reflectivity color
-                        glassMaterial.albedoColor = new BABYLON.Color3(0.95, 0.95, 0.95); // Set the color of the glass
-
-                        bottleMesh.material = glassMaterial; // Assign the glass material to the bottle
-
-                        // Add all other scene meshes to the reflection texture's render list
-                        dynamicReflectionTexture.renderList.push(...scene.meshes.filter(mesh => mesh !== bottleMesh));
-                    }
-                });
-
-                // Return the created scene
+            
+                // Ajouter une lumière
+                const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            
+                // Charger une texture HDR pour l'environnement
+                const hdrTexture = new BABYLON.HDRCubeTexture(
+                    "textures/room1k.hdr",
+                    scene,
+                    512
+                );
+                scene.environmentTexture = hdrTexture; 
+                scene.environmentIntensity = 1.0;
+            
+                // Charger le modèle GLTF/GLB
+                BABYLON.SceneLoader.Append(
+                    "/",
+                    "bottle.glb",
+                   scene,
+                   (loadedScene) => {
+                       loadedScene.meshes.forEach((mesh) => {
+                           if (mesh.material) {
+                               const pbr = mesh.material;
+                           
+                               // Activer la transmission et la réfraction
+                               pbr.subSurface.isRefractionEnabled = true; 
+                               pbr.subSurface.refractionIntensity = 1.0; 
+                               pbr.subSurface.indexOfRefraction = 1.5;
+                           
+                               // Activer la transparence
+                               pbr.alpha = 0.5; 
+                               pbr.metallic = 0.1;
+                               pbr.roughness = 0.1; 
+                           }
+                       });
+                   }
+                );
+                
+                // Rendre la scène
                 return scene;
             };
 
-            // Create and run the scene
-            var scene = createScene();
+            const scene = createScene();
 
-            // Start the render loop
-            engine.runRenderLoop(function () {
-                if (scene) {
-                    scene.render(); // Render the scene
-                }
+            engine.runRenderLoop(() => {
+                scene.render();
             });
 
-            // Resize the engine when the window is resized
-            window.addEventListener("resize", function () {
+            // Redimensionner le canvas en cas de changement de fenêtre
+            window.addEventListener("resize", () => {
                 engine.resize();
             });
+
         }
     </script>
 </body>
